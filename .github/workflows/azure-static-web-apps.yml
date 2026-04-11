@@ -35,7 +35,7 @@ jobs:
           api_location: ''
           output_location: ''
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_API_BASE_URL: https://api.2une.in
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

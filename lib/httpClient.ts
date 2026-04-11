@@ -5,6 +5,13 @@ const REFRESH_KEY = '2une_refresh_token';
 export function getApiBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   const base = raw?.replace(/\/$/, '') ?? '';
+  if (base.length === 0) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'NEXT_PUBLIC_API_BASE_URL is missing. It must be set when the app is built (e.g. GitHub Actions env on the Azure Static Web Apps deploy step). Azure Portal application settings do not inject NEXT_PUBLIC_* into an already-built client bundle.',
+      );
+    }
+  }
   const url = base.length > 0 ? base : 'http://localhost:3000';
 
   if (typeof window !== 'undefined' && (url.startsWith('http://') || url.startsWith('https://'))) {

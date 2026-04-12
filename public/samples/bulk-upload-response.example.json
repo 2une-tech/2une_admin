@@ -1,0 +1,49 @@
+{
+  "success": true,
+  "data": {
+    "totalRequested": 3,
+    "totalCreated": 2,
+    "results": [
+      {
+        "index": 0,
+        "ok": true,
+        "project": {
+          "id": "0195f1a0-0000-7000-8000-000000000001",
+          "title": "Sample — Draft legal review",
+          "domain": "Legal",
+          "status": "draft",
+          "payType": "per_hour",
+          "payMin": 45,
+          "payMax": 65,
+          "payPerTask": 65
+        }
+      },
+      {
+        "index": 1,
+        "ok": false,
+        "message": "Example only: this row failed (validation or server error)."
+      },
+      {
+        "index": 2,
+        "ok": true,
+        "project": {
+          "id": "0195f1a0-0000-7000-8000-000000000002",
+          "title": "Sample — Paused per-task project",
+          "domain": "Finance",
+          "status": "paused",
+          "payType": "per_task",
+          "payMin": 0.5,
+          "payMax": 2.5,
+          "payPerTask": 2.5
+        }
+      }
+    ],
+    "created": [],
+    "errors": [
+      {
+        "index": 1,
+        "message": "Example only: this row failed (validation or server error)."
+      }
+    ]
+  }
+}

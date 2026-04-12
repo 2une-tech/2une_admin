@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { adminApi, type Project } from '../../../lib/adminApi';
+import { adminApi, formatProjectPaySummary, type Project } from '../../../lib/adminApi';
 
 export default function TasksIndexPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -45,7 +45,12 @@ export default function TasksIndexPage() {
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-zinc-900">{p.title}</div>
                   <div className="mt-1 text-xs text-zinc-600">
-                    {p.domain} · {p.status} · ${p.payPerTask}/task
+                    {p.domain} · {p.status} ·{' '}
+                    {formatProjectPaySummary({
+                      payType: p.payType ?? 'per_task',
+                      payMin: p.payMin ?? p.payPerTask ?? 0,
+                      payMax: p.payMax ?? p.payPerTask ?? 0,
+                    })}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

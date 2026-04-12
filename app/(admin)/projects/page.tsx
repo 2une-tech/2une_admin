@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { adminApi, type Project, type ProjectStatus } from '../../../lib/adminApi';
+import { adminApi, formatProjectPaySummary, type Project, type ProjectStatus } from '../../../lib/adminApi';
 
 export default function ProjectsPage() {
   const [items, setItems] = useState<Project[]>([]);
@@ -45,9 +45,17 @@ export default function ProjectsPage() {
           <div className="text-sm text-zinc-600">{filteredLabel}</div>
           <h1 className="text-xl font-semibold">Projects</h1>
         </div>
-        <Link className="inline-flex h-10 items-center justify-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" href="/projects/new">
-          New project
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+            href="/projects/bulk"
+          >
+            Bulk upload
+          </Link>
+          <Link className="inline-flex h-10 items-center justify-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" href="/projects/new">
+            New project
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
@@ -94,7 +102,13 @@ export default function ProjectsPage() {
                     <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-600">
                       <span className="rounded bg-zinc-100 px-2 py-0.5">domain: {p.domain}</span>
                       <span className="rounded bg-zinc-100 px-2 py-0.5">status: {p.status}</span>
-                      <span className="rounded bg-zinc-100 px-2 py-0.5">pay: ${p.payPerTask}/task</span>
+                      <span className="rounded bg-zinc-100 px-2 py-0.5">
+                        {formatProjectPaySummary({
+                          payType: p.payType ?? 'per_task',
+                          payMin: p.payMin ?? p.payPerTask ?? 0,
+                          payMax: p.payMax ?? p.payPerTask ?? 0,
+                        })}
+                      </span>
                     </div>
                   </div>
                   <div className="text-xs text-zinc-600">Open</div>

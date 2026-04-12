@@ -1,0 +1,68 @@
+{
+  "projects": [
+    {
+      "title": "Sample — Draft legal review",
+      "description": "Use status \"draft\" while you configure tasks.",
+      "domain": "Legal",
+      "payType": "per_hour",
+      "payMin": 45,
+      "payMax": 65,
+      "status": "draft",
+      "config": {
+        "task_type": "generic",
+        "input_schema": {
+          "type": "object",
+          "fields": [
+            { "name": "text", "type": "string", "required": true, "description": "Input text" }
+          ]
+        },
+        "output_schema": { "type": "single_select", "options": ["Yes", "No"] },
+        "evaluation": { "type": "manual", "passing_score": 0.8 }
+      }
+    },
+    {
+      "title": "Sample — Active medical QA",
+      "description": "Hourly range with requirements.",
+      "domain": "Medical",
+      "payType": "per_hour",
+      "payMin": 80,
+      "payMax": 100,
+      "status": "active",
+      "config": {
+        "task_type": "generic",
+        "input_schema": {
+          "type": "object",
+          "fields": [
+            { "name": "text", "type": "string", "required": true, "description": "Input text" }
+          ]
+        },
+        "output_schema": { "type": "single_select", "options": ["Yes", "No"] },
+        "evaluation": { "type": "manual", "passing_score": 0.8 }
+      },
+      "requirement": {
+        "minAccuracy": 0.85,
+        "requiredSkills": ["medicine"],
+        "languages": ["en"]
+      }
+    },
+    {
+      "title": "Sample — Paused per-task project",
+      "domain": "Finance",
+      "payType": "per_task",
+      "payMin": 0.5,
+      "payMax": 2.5,
+      "status": "paused",
+      "config": {
+        "task_type": "generic",
+        "input_schema": {
+          "type": "object",
+          "fields": [
+            { "name": "text", "type": "string", "required": true, "description": "Input text" }
+          ]
+        },
+        "output_schema": { "type": "single_select", "options": ["Yes", "No"] },
+        "evaluation": { "type": "manual", "passing_score": 0.8 }
+      }
+    }
+  ]
+}

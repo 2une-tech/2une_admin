@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ApplicationReviewTable } from '@/components/ApplicationReviewTable';
 import {
@@ -9,21 +10,24 @@ import {
   APPLICATION_STATUSES,
   type AdminApplicationRow,
   type ApplicationStatus,
-  type Project,
 } from '@/lib/adminApi';
+import { formatConversionRate } from '@/lib/applicationFormat';
 
-export default function ApplicationsPage() {
+export default function ProjectApplicationsPage() {
+  const params = useParams<{ id: string }>();
+  const projectId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof adminApi.getProjectApplicationStats>> | null>(null);
   const [envelope, setEnvelope] = useState<{
     items: AdminApplicationRow[];
     page: number;
     limit: number;
     total: number;
+    project: { id: string; title: string };
   } | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('');
-  const [projectId, setProjectId] = useState('');
   const [sort, setSort] = useState<'updatedAt' | 'createdAt' | 'interviewScore'>('updatedAt');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -31,54 +35,50 @@ export default function ApplicationsPage() {
 
   const limit = 20;
 
-  const filteredLabel = useMemo(() => {
-    const parts: string[] = [];
-    if (statusFilter) parts.push(`status=${statusFilter}`);
-    if (projectId.trim()) parts.push(`project=${projectId.trim()}`);
-    return parts.length ? parts.join(' · ') : 'All applications';
-  }, [statusFilter, projectId]);
+  const loadStats = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const s = await adminApi.getProjectApplicationStats(projectId);
+      setStats(s);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load stats');
+      setStats(null);
+    }
+  }, [projectId]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await adminApi.listProjects({ page: 1, limit: 200 });
-        setProjects(res.items);
-      } catch {
-        setProjects([]);
-      }
-    })();
-  }, []);
-
-  const load = useCallback(async () => {
+  const loadApplications = useCallback(async () => {
+    if (!projectId) return;
     setLoading(true);
     try {
-      const res = await adminApi.listApplications({
+      const res = await adminApi.listProjectApplications(projectId, {
         page,
         limit,
         status: statusFilter,
-        projectId: projectId.trim() || undefined,
         sort,
         dir,
       });
       setEnvelope(res);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load applications';
-      toast.error(msg);
+      toast.error(e instanceof Error ? e.message : 'Failed to load applications');
       setEnvelope(null);
     } finally {
       setLoading(false);
     }
-  }, [page, limit, statusFilter, projectId, sort, dir]);
+  }, [projectId, page, limit, statusFilter, sort, dir]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    void loadApplications();
+  }, [loadApplications]);
 
   const onApprove = async (id: string) => {
     try {
       await adminApi.approveApplication(id);
       toast.success('Approved — candidate will see this under Offers in the work app');
-      await load();
+      await Promise.all([loadApplications(), loadStats()]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Approve failed');
     }
@@ -88,47 +88,66 @@ export default function ApplicationsPage() {
     try {
       await adminApi.rejectApplication(id, (rejectReason[id] ?? '').trim() || undefined);
       toast.success('Rejected');
-      await load();
+      await Promise.all([loadApplications(), loadStats()]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Reject failed');
     }
   };
 
+  if (!projectId) return <div className="text-sm text-zinc-600">Invalid project.</div>;
+
   const totalPages = envelope ? Math.max(1, Math.ceil(envelope.total / limit)) : 1;
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-sm text-zinc-600">{filteredLabel}</div>
-        <h1 className="text-xl font-semibold">Applications</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Cross-project view. For funnel stats and review by project, open a project →{' '}
-          <span className="font-medium text-zinc-700">Applications</span>.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-sm text-zinc-600">
+            <Link href={`/projects/${projectId}`} className="text-violet-700 hover:underline">
+              ← Project settings
+            </Link>
+          </div>
+          <h1 className="mt-1 text-xl font-semibold">{envelope?.project.title ?? 'Applications'}</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Review candidates for this project. Approving sends an offer (approved application) to the talent app.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/projects/${projectId}/tasks`}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium hover:bg-zinc-50"
+          >
+            Tasks
+          </Link>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-          <div className="space-y-1 lg:col-span-2">
-            <div className="text-xs font-medium text-zinc-600">Project</div>
-            <select
-              className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm"
-              value={projectId}
-              onChange={(e) => {
-                setPage(1);
-                setProjectId(e.target.value);
-              }}
-            >
-              <option value="">All projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
+      {stats ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-baseline gap-2 text-sm text-zinc-600">
+            <span className="font-medium text-zinc-900">{stats.total}</span> total applications
+            <span className="text-zinc-400">·</span>
+            <span>
+              Approved / total: {formatConversionRate(stats.conversionRate)} ({stats.byStatus.approved ?? 0} approved)
+            </span>
           </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {APPLICATION_STATUSES.map((s) => (
+              <div key={s} className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">{s.replace(/_/g, ' ')}</div>
+                <div className="mt-1 text-2xl font-semibold text-zinc-900">{stats.byStatus[s] ?? 0}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="text-sm text-zinc-500">Loading stats…</div>
+      )}
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-4">
           <div className="space-y-1">
-            <div className="text-xs font-medium text-zinc-600">Status</div>
+            <div className="text-xs font-medium text-zinc-600">Filter by status</div>
             <select
               className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm"
               value={statusFilter}
@@ -137,7 +156,7 @@ export default function ApplicationsPage() {
                 setStatusFilter(e.target.value as ApplicationStatus | '');
               }}
             >
-              <option value="">All</option>
+              <option value="">All statuses</option>
               {APPLICATION_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -146,7 +165,7 @@ export default function ApplicationsPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-zinc-600">Sort</div>
+            <div className="text-xs font-medium text-zinc-600">Sort by</div>
             <select
               className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm"
               value={sort}
@@ -170,25 +189,25 @@ export default function ApplicationsPage() {
                 setDir(e.target.value as 'asc' | 'desc');
               }}
             >
-              <option value="desc">Desc</option>
-              <option value="asc">Asc</option>
+              <option value="desc">Newest / highest first</option>
+              <option value="asc">Oldest / lowest first</option>
             </select>
           </div>
-        </div>
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="h-10 rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium hover:bg-zinc-50"
-          >
-            Refresh
-          </button>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={() => void loadApplications()}
+              className="h-10 w-full rounded-md border border-zinc-200 bg-white text-sm font-medium hover:bg-zinc-50"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3">
-          <div className="text-sm font-medium">Results</div>
+          <div className="text-sm font-medium">Candidates</div>
           {envelope ? (
             <div className="text-xs text-zinc-500">
               Page {envelope.page} of {totalPages} · {envelope.total} rows
@@ -200,7 +219,6 @@ export default function ApplicationsPage() {
         ) : envelope ? (
           <ApplicationReviewTable
             rows={envelope.items}
-            showProjectColumn
             expandedId={expandedId}
             onToggleExpand={setExpandedId}
             rejectReason={rejectReason}
@@ -209,7 +227,7 @@ export default function ApplicationsPage() {
             onReject={onReject}
           />
         ) : (
-          <div className="p-4 text-sm text-zinc-600">No data.</div>
+          <div className="p-4 text-sm text-zinc-600">Nothing to show.</div>
         )}
 
         {envelope && envelope.total > limit ? (
@@ -236,14 +254,6 @@ export default function ApplicationsPage() {
           </div>
         ) : null}
       </div>
-
-      <p className="text-xs text-zinc-500">
-        Tip: open{' '}
-        <Link className="text-violet-700 hover:underline" href="/projects">
-          Projects
-        </Link>{' '}
-        and use <strong>Applications</strong> on a project for per-project funnel stats.
-      </p>
     </div>
   );
 }

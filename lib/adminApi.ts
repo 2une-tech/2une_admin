@@ -93,6 +93,42 @@ export type TaskRow = {
   updatedAt?: string;
 };
 
+export const APPLICATION_STATUSES = [
+  'applied',
+  'under_review',
+  'interview_pending',
+  'approved',
+  'rejected',
+] as const;
+
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+export type ApplicationUserPreview = {
+  id: string;
+  email: string;
+  profile?: { fullName: string | null } | null;
+  skills: { id: string; name: string }[];
+  languages: { id: string; language: string; speakLevel: string | null; writeLevel: string | null }[];
+  talentProfile?: { status: string | null; internalRating: number | null; tags: string[] | null } | null;
+};
+
+export type AdminApplicationRow = {
+  id: string;
+  projectId: string;
+  userId: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  interviewScore: number | null;
+  interviewTranscript: unknown;
+  interviewCompletedAt: string | null;
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  reviewedBy?: { id: string; email: string } | null;
+  project?: { id: string; title: string };
+  user: ApplicationUserPreview;
+};
+
 export const adminApi = {
   async listProjects(params: {
     page?: number;
@@ -156,32 +192,61 @@ export const adminApi = {
     return apiRequest(`/admin/projects/${projectId}/tasks/bulk-upload`, { method: 'POST', auth: true, body });
   },
 
-  async listApplications(params: { status?: string; projectId?: string } = {}) {
+  async getProjectApplicationStats(projectId: string): Promise<{
+    projectId: string;
+    total: number;
+    byStatus: Record<string, number>;
+    conversionRate: number;
+  }> {
+    return apiRequest(`/admin/projects/${projectId}/application-stats`, { auth: true });
+  },
+
+  async listProjectApplications(
+    projectId: string,
+    params: {
+      page?: number;
+      limit?: number;
+      status?: ApplicationStatus | '';
+      sort?: 'updatedAt' | 'createdAt' | 'interviewScore';
+      dir?: 'asc' | 'desc';
+    } = {},
+  ): Promise<PageEnvelope<AdminApplicationRow> & { project: { id: string; title: string } }> {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.status) qs.set('status', params.status);
+    if (params.sort) qs.set('sort', params.sort);
+    if (params.dir) qs.set('dir', params.dir);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return apiRequest(`/admin/projects/${projectId}/applications${suffix}`, { auth: true });
+  },
+
+  async listApplications(
+    params: {
+      status?: ApplicationStatus | '';
+      projectId?: string;
+      page?: number;
+      limit?: number;
+      sort?: 'updatedAt' | 'createdAt' | 'interviewScore';
+      dir?: 'asc' | 'desc';
+    } = {},
+  ): Promise<PageEnvelope<AdminApplicationRow>> {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
     if (params.projectId) qs.set('projectId', params.projectId);
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.sort) qs.set('sort', params.sort);
+    if (params.dir) qs.set('dir', params.dir);
     const suffix = qs.toString() ? `?${qs}` : '';
-    return apiRequest<
-      Array<{
-        id: string;
-        projectId: string;
-        userId: string;
-        status: string;
-        createdAt: string;
-        updatedAt: string;
-        interviewScore?: number | null;
-        rejectionReason?: string | null;
-        project?: { id: string; title: string };
-        user?: { id: string; email: string };
-      }>
-    >(`/admin/applications${suffix}`, { auth: true });
+    return apiRequest(`/admin/applications${suffix}`, { auth: true });
   },
 
-  async approveApplication(id: string) {
+  async approveApplication(id: string): Promise<AdminApplicationRow> {
     return apiRequest(`/admin/applications/${id}/approve`, { method: 'POST', auth: true });
   },
 
-  async rejectApplication(id: string, reason?: string) {
+  async rejectApplication(id: string, reason?: string): Promise<AdminApplicationRow> {
     return apiRequest(`/admin/applications/${id}/reject`, { method: 'POST', auth: true, body: reason ? { reason } : {} });
   },
 

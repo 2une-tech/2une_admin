@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { adminApi, type Project, type ProjectStatus } from '../../../../lib/adminApi';
+import { adminApi, type Project, type ProjectPayType, type ProjectStatus, projectContractLabel } from '../../../../lib/adminApi';
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -17,12 +17,17 @@ export default function ProjectDetailPage() {
   const [title, setTitle] = useState('');
   const [domain, setDomain] = useState('');
   const [description, setDescription] = useState('');
-  const [payPerTask, setPayPerTask] = useState('0');
+  const [payType, setPayType] = useState<ProjectPayType>('per_task');
+  const [payMin, setPayMin] = useState('0');
+  const [payMax, setPayMax] = useState('0');
   const [status, setStatus] = useState<ProjectStatus>('draft');
   const [configJson, setConfigJson] = useState<string>('');
   const [requirementJson, setRequirementJson] = useState<string>('');
 
-  const disabled = useMemo(() => saving || !title.trim() || !domain.trim() || Number(payPerTask) < 0, [saving, title, domain, payPerTask]);
+  const minN = Number(payMin);
+  const maxN = Number(payMax);
+  const payValid = Number.isFinite(minN) && Number.isFinite(maxN) && minN >= 0 && maxN >= 0 && maxN >= minN;
+  const disabled = useMemo(() => saving || !title.trim() || !domain.trim() || !payValid, [saving, title, domain, payValid]);
 
   async function load() {
     if (!id) return;
@@ -33,7 +38,9 @@ export default function ProjectDetailPage() {
       setTitle(p.title ?? '');
       setDomain(p.domain ?? '');
       setDescription(p.description ?? '');
-      setPayPerTask(String(p.payPerTask ?? 0));
+      setPayType((p.payType ?? 'per_task') as ProjectPayType);
+      setPayMin(String(p.payMin ?? p.payPerTask ?? 0));
+      setPayMax(String(p.payMax ?? p.payPerTask ?? 0));
       setStatus((p.status ?? 'draft') as ProjectStatus);
 
       const pAny = p as unknown as { config?: unknown };
@@ -111,8 +118,29 @@ export default function ProjectDetailPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-medium text-zinc-600">Pay per task</div>
-            <input className="h-10 w-full rounded-md border border-zinc-200 px-3" value={payPerTask} onChange={(e) => setPayPerTask(e.target.value)} inputMode="decimal" />
+            <div className="text-xs font-medium text-zinc-600">Pay basis</div>
+            <select
+              className="h-10 w-full rounded-md border border-zinc-200 px-3"
+              value={payType}
+              onChange={(e) => setPayType(e.target.value as ProjectPayType)}
+            >
+              <option value="per_task">Per task</option>
+              <option value="per_hour">Per hour</option>
+            </select>
+            <p className="text-xs text-zinc-500">{projectContractLabel(payType)}</p>
+          </div>
+          <div className="space-y-1 md:col-span-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+            <div className="text-xs font-medium text-zinc-600">Compensation range (USD)</div>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-500">Minimum</label>
+                <input className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3" value={payMin} onChange={(e) => setPayMin(e.target.value)} inputMode="decimal" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-500">Maximum</label>
+                <input className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3" value={payMax} onChange={(e) => setPayMax(e.target.value)} inputMode="decimal" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -149,7 +177,9 @@ export default function ProjectDetailPage() {
                 domain: domain.trim(),
                 description: description.trim() || null,
                 status,
-                payPerTask: Number(payPerTask),
+                payType,
+                payMin: minN,
+                payMax: maxN,
               };
               if (configJson.trim()) {
                 try {

@@ -4,6 +4,25 @@ export type PageEnvelope<T> = { items: T[]; page: number; limit: number; total: 
 
 export type ProjectStatus = 'draft' | 'active' | 'paused' | 'completed';
 
+export type ProjectPayType = 'per_task' | 'per_hour';
+
+function formatMoney(n: number): string {
+  if (Number.isInteger(n)) return String(n);
+  const s = n.toFixed(2);
+  return s.replace(/\.?0+$/, '');
+}
+
+/** Mercor-style summary for list rows and chips. */
+export function formatProjectPaySummary(p: { payType: ProjectPayType; payMin: number; payMax: number }): string {
+  const unit = p.payType === 'per_hour' ? 'hour' : 'task';
+  if (p.payMin === p.payMax) return `$${formatMoney(p.payMin)} / ${unit}`;
+  return `$${formatMoney(p.payMin)} – $${formatMoney(p.payMax)} / ${unit}`;
+}
+
+export function projectContractLabel(payType: ProjectPayType): string {
+  return payType === 'per_hour' ? 'Hourly contract' : 'Per-task contract';
+}
+
 export type ProjectConfig = {
   task_type: string;
   input_schema: {
@@ -35,6 +54,10 @@ export type Project = {
   description?: string | null;
   domain: string;
   status: ProjectStatus;
+  payType: ProjectPayType;
+  payMin: number;
+  payMax: number;
+  /** Synced to payMax for sorting / legacy use. */
   payPerTask: number;
   createdAt?: string;
   updatedAt?: string;
@@ -47,7 +70,11 @@ export type CreateProjectInput = {
   description?: string;
   domain: string;
   status?: ProjectStatus;
-  payPerTask: number;
+  payType?: ProjectPayType;
+  payMin?: number;
+  payMax?: number;
+  /** Legacy single rate; use payMin + payMax + payType for Mercor-style ranges. */
+  payPerTask?: number;
   config: ProjectConfig;
   requirement?: { minAccuracy: number; requiredSkills: string[]; languages: string[] };
 };
@@ -88,6 +115,19 @@ export const adminApi = {
 
   async createProject(input: CreateProjectInput): Promise<Project> {
     return apiRequest('/admin/projects', { method: 'POST', auth: true, body: input });
+  },
+
+  async bulkCreateProjects(projects: CreateProjectInput[]): Promise<{
+    created: Project[];
+    errors: { index: number; message: string }[];
+    results: Array<
+      | { index: number; ok: true; project: Project }
+      | { index: number; ok: false; message: string }
+    >;
+    totalRequested: number;
+    totalCreated: number;
+  }> {
+    return apiRequest('/admin/projects/bulk', { method: 'POST', auth: true, body: { projects } });
   },
 
   async getProject(id: string): Promise<Project> {

@@ -6,17 +6,23 @@ export type ProjectStatus = 'draft' | 'active' | 'paused' | 'completed';
 
 export type ProjectPayType = 'per_task' | 'per_hour';
 
-function formatMoney(n: number): string {
-  if (Number.isInteger(n)) return String(n);
-  const s = n.toFixed(2);
-  return s.replace(/\.?0+$/, '');
+const INR_FORMATTER = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+function formatINR(n: number): string {
+  if (!Number.isFinite(n)) return '—';
+  return INR_FORMATTER.format(n);
 }
 
 /** Mercor-style summary for list rows and chips. */
 export function formatProjectPaySummary(p: { payType: ProjectPayType; payMin: number; payMax: number }): string {
   const unit = p.payType === 'per_hour' ? 'hour' : 'task';
-  if (p.payMin === p.payMax) return `$${formatMoney(p.payMin)} / ${unit}`;
-  return `$${formatMoney(p.payMin)} – $${formatMoney(p.payMax)} / ${unit}`;
+  if (p.payMin === p.payMax) return `${formatINR(p.payMin)} / ${unit}`;
+  return `${formatINR(p.payMin)} – ${formatINR(p.payMax)} / ${unit}`;
 }
 
 export function projectContractLabel(payType: ProjectPayType): string {

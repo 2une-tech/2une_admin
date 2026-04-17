@@ -81,7 +81,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               inputMode="email"
-              placeholder="admin@company.com"
+              placeholder="admin@2une.in"
               disabled={isLoading}
             />
           </div>

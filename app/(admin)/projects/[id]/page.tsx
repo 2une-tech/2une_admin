@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { adminApi, type Project, type ProjectPayType, type ProjectStatus, projectContractLabel } from '../../../../lib/adminApi';
+import {
+  adminApi,
+  type Project,
+  type ProjectPayType,
+  type ProjectStatus,
+  projectContractLabel,
+} from '../../../../lib/adminApi';
+import { formatConversionRate } from '../../../../lib/applicationFormat';
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -13,6 +20,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [appStats, setAppStats] = useState<Awaited<ReturnType<typeof adminApi.getProjectApplicationStats>> | null>(null);
 
   const [title, setTitle] = useState('');
   const [domain, setDomain] = useState('');
@@ -64,6 +72,18 @@ export default function ProjectDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const s = await adminApi.getProjectApplicationStats(id);
+        setAppStats(s);
+      } catch {
+        setAppStats(null);
+      }
+    })();
+  }, [id]);
+
   if (loading) return <div className="text-sm text-zinc-600">Loading…</div>;
   if (!project) return <div className="text-sm text-zinc-600">Project not found.</div>;
 
@@ -74,7 +94,13 @@ export default function ProjectDetailPage() {
           <h1 className="text-xl font-semibold">{project.title}</h1>
           <div className="mt-1 text-sm text-zinc-600">{project.id}</div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            className="inline-flex h-10 items-center justify-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+            href={`/projects/${project.id}/applications`}
+          >
+            Applications
+          </Link>
           <Link
             className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium hover:bg-zinc-50"
             href={`/projects/${project.id}/tasks`}
@@ -89,6 +115,27 @@ export default function ProjectDetailPage() {
           </Link>
         </div>
       </div>
+
+      {appStats ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-medium text-zinc-900">Application funnel</div>
+            <Link href={`/projects/${project.id}/applications`} className="text-sm font-medium text-violet-700 hover:underline">
+              Open applications
+            </Link>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">
+            {appStats.total} total · {appStats.byStatus.approved ?? 0} approved ({formatConversionRate(appStats.conversionRate)} of total)
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(['interview_pending', 'under_review', 'approved', 'rejected'] as const).map((k) => (
+              <span key={k} className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
+                {k.replace(/_/g, ' ')}: {appStats.byStatus[k] ?? 0}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2">
@@ -130,7 +177,7 @@ export default function ProjectDetailPage() {
             <p className="text-xs text-zinc-500">{projectContractLabel(payType)}</p>
           </div>
           <div className="space-y-1 md:col-span-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-            <div className="text-xs font-medium text-zinc-600">Compensation range (USD)</div>
+            <div className="text-xs font-medium text-zinc-600">Compensation range (INR)</div>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <label className="text-xs text-zinc-500">Minimum</label>

@@ -6,16 +6,18 @@ import { apiRequest } from '../../lib/httpClient';
 
 export default function AdminHome() {
   const [projectsTotal, setProjectsTotal] = useState<number | null>(null);
+  const [applicationsTotal, setApplicationsTotal] = useState<number | null>(null);
+  const [usersTotal, setUsersTotal] = useState<number | null>(null);
   const [eventsTotal, setEventsTotal] = useState<number | null>(null);
 
   const cards = useMemo(
     () => [
       { href: '/projects', label: 'Projects', value: projectsTotal },
-      { href: '/applications', label: 'Applications', value: null },
-      { href: '/users', label: 'Users', value: null },
+      { href: '/applications', label: 'Applications', value: applicationsTotal },
+      { href: '/users', label: 'Users', value: usersTotal },
       { href: '/events', label: 'Events', value: eventsTotal },
     ],
-    [projectsTotal, eventsTotal],
+    [projectsTotal, applicationsTotal, usersTotal, eventsTotal],
   );
 
   useEffect(() => {
@@ -27,6 +29,18 @@ export default function AdminHome() {
         setProjectsTotal(projects.total);
       } catch {
         setProjectsTotal(null);
+      }
+      try {
+        const apps = await apiRequest<{ total: number }>('/admin/applications?page=1&limit=1', { auth: true });
+        setApplicationsTotal(apps.total);
+      } catch {
+        setApplicationsTotal(null);
+      }
+      try {
+        const users = await apiRequest<{ total: number }>('/admin/users?page=1&limit=1', { auth: true });
+        setUsersTotal(users.total);
+      } catch {
+        setUsersTotal(null);
       }
       try {
         const events = await apiRequest<{ items: unknown[]; total: number }>('/admin/events?page=1&limit=1', { auth: true });
